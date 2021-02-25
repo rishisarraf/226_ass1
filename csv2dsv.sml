@@ -15,6 +15,7 @@ end;
 exception emptyInputFile;
 exception UnevenFields of string ;
 exception lastRecordNotTerminatedByLF;
+exception invalidQuotes;
 
 fun convert(infile: char list , delim1: char, delim2: char)=     (* helper function to convert the input list of char into output list of char as per problem specification *)
 	let 
@@ -43,7 +44,7 @@ fun convert(infile: char list , delim1: char, delim2: char)=     (* helper funct
 				val curr_is_lf 	= curr=lf;
 
 			in
-				if !new_record then 
+				if !new_record then     (* if the curr char is the beginning of a new record*)
 					if curr_is_quote then 
 						(new_record:=false;
 						 new_field:=false;
@@ -85,11 +86,12 @@ fun convert(infile: char list , delim1: char, delim2: char)=     (* helper funct
 										curr::nil) *)
 							else 
 								(started_with_quotes:=false;
+								quote_open := false;
 								new_field:=false;
 								new_record:=false;
 								quote::curr::nil) 
 				else 
-					if !new_field then 
+					if !new_field then 				(* if the curr char is the beginning of a new field but not a new record*)
 						if curr_is_quote then 
 							(new_record:=false;
 							 new_field:=false;
@@ -131,12 +133,13 @@ fun convert(infile: char list , delim1: char, delim2: char)=     (* helper funct
 											curr::nil) *)
 								else 
 									(started_with_quotes:=false;
+									quote_open := false;
 									new_field:=false;
 									new_record:=false;
 									quote::curr::nil)
 
 					else 
-						if !started_with_quotes then 
+						if !started_with_quotes then    (* if the field currently being looked at started with quotes*)
 							if curr_is_quote then 
 								if !quote_open then 
 									(quote_open:=false;
@@ -184,35 +187,38 @@ fun convert(infile: char list , delim1: char, delim2: char)=     (* helper funct
 															(*new_record:=true;
 															curr::nil)*) 
 									else curr::nil 
-						else 
-							if curr_is_delim1 then 
-								(new_field:=true;
-									r := !r + 1;
-									quote::delim2::nil) 
-							else 
-								if curr_is_lf then
-								 	if !i <> 0 then
-										if !r + 1 <> !n then 
-											(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
+						else
+							if curr_is_quote then
+								raise invalidQuotes
+							else  
+								if curr_is_delim1 then 
+									(new_field:=true;
+										r := !r + 1;
+										quote::delim2::nil) 
+								else 
+									if curr_is_lf then
+									 	if !i <> 0 then
+											if !r + 1 <> !n then 
+												(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
 												i := !i +1;
-											  	r := 0;
+												r := 0;
+												new_record:=true;
+												new_field:=true;
+												quote::curr::nil)  
+											else 
+												  (	i := !i +1;
+												  	r := 0;
+												  	new_record:=true;
+													new_field:=true;
+													quote::curr::nil) 
+										else 
+											( n := !r + 1;
+											i := !i + 1;
+											r := 0;
 											new_record:=true;
 											new_field:=true;
-											quote::curr::nil)  
-										else 
-											  (	i := !i +1;
-											  	r := 0;
-											  	new_record:=true;
-												new_field:=true;
-												quote::curr::nil) 
-									else 
-										( n := !r + 1;
-										i := !i + 1;
-										r := 0;
-										new_record:=true;
-										new_field:=true;
-										quote::curr::nil)
-								else curr::nil
+											quote::curr::nil)
+									else curr::nil
 			end;
 			
 	in
@@ -252,19 +258,4 @@ fun tsv2csv ( infilename , outfilename ) =
 	in 
 		convertDelimiters( infilename, tab, outfilename, comma)
 	end;
-
-
-
-(*csv2tsv("himym.csv","output_himym.tsv");*)
-(*tsv2csv("output_himym.tsv","output_himym.csv");*)
-(*convertDelimiters ("ex4.txt", #",", "output_ex4.txt", #";");*)
-
-
-
-
-(*val vec = parse("himym_uneven.csv");
-val output_list=convert(vec, #",", #";");
-val output_string= implode(output_list);
-val outStream = TextIO.openOut "output_himym_uneven.txt";
-TextIO.output(outStream,output_string );*)
 
