@@ -1,4 +1,6 @@
-fun parse file =
+
+
+fun parse file =            (* Function to convert file into a list of characters*)
 let
     fun next_String input = (TextIO.inputAll input) 
     val stream = TextIO.openIn file
@@ -7,12 +9,14 @@ in
     explode(a)
 end;
 
+(* I have handled the cases of empty file and unevenFields in the input file. 
+~ The function convertDelimiters assumes that the input file is well quoted, i.e, inputs invalid wrt quotes have NOT been handled.*)
 
 exception emptyInputFile;
-exception unevenInput of string ;
-exception unbalancedQuotes;
+exception UnevenFields of string ;
+exception lastRecordNotTerminatedByLF;
 
-fun convert(infile: char list , delim1: char, delim2: char)=
+fun convert(infile: char list , delim1: char, delim2: char)=     (* helper function to convert the input list of char into output list of char as per problem specification *)
 	let 
 		val output = ref nil;
 		val len = length(infile);
@@ -22,15 +26,15 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 		val comma= #",";
 		val lf   = #"\n";
 		val num_records = ref 0;
-		val n = ref 0; (* stores the total number of fields in the first record *)
-		val r = ref 0; (* stores the total number of fields seen in the current record *)
-		val i = ref 0; (* stores the number of record corrently being looked at *)
-		val j = ref 0; (* stores the variable for while loop *)
+		val n = ref 0; 		(* stores the total number of fields in the first record *)
+		val r = ref 0; 		(* stores the total number of fields seen in the current record *)
+		val i = ref 0; 		(* stores the number of record corrently being looked at *)
+		val j = ref 0; 		(* stores the variable for while loop *)
 		val started_with_quote = ref false; (* stores bool, true if current field started with inverted comma*)
 		val quote_open = ref false;
 		val new_record = ref true;
 		val new_field = ref true;
-		val started_with_quotes = ref false;
+		val started_with_quotes = ref false; (* stores bool, true if the field being currently looked at started with quotes*)
 		fun support(curr: char)= 
 			let
 
@@ -70,7 +74,7 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 										new_field:=true;
 										curr::nil)  
 									else
-										(raise unevenInput("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n"); 
+										(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n"); 
 										r := 0;
 										i := !i + 1;
 										new_record:=true;
@@ -116,7 +120,7 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 											new_field:=true;
 											curr::nil)  
 										else 
-											(raise unevenInput("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
+											(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
 											 r := 0;
 											i := !i + 1;
 											new_record:=true;
@@ -170,7 +174,7 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 														new_field:=true;
 														curr::nil)
 													else 
-														(raise unevenInput("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n"); 
+														(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n"); 
 															new_record:=true;
 															i := !i + 1;
 															r := 0;
@@ -189,7 +193,7 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 								if curr_is_lf then
 								 	if !i <> 0 then
 										if !r + 1 <> !n then 
-											(raise unevenInput("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
+											(raise UnevenFields("Expected: "^Int.toString(!n)^" fields , Present: "^Int.toString(!r+1)^" fields on Line "^Int.toString(!i+1)^"\n");
 												i := !i +1;
 											  	r := 0;
 											new_record:=true;
@@ -213,10 +217,11 @@ fun convert(infile: char list , delim1: char, delim2: char)=
 			
 	in
 		while !j<len 
-		do (output := !output @ support(List.nth(infile,!j))handle unevenInput(str) => (j := len; print(str)) ; j := !j + 1);
+		do (output := !output @ support(List.nth(infile,!j))handle UnevenFields(str) => (j := len; print(str)) ; j := !j + 1);   (* if unevenInput exception is handled, j is made len to stop further execution*)
 		if len=0 then raise emptyInputFile else 
 		(*print(Int.toString(!n)^" \n");*)
-		!output 
+			if List.nth(infile,len-1)<> lf then raise lastRecordNotTerminatedByLF else
+			!output 
 	end;
 
 
@@ -252,7 +257,7 @@ fun tsv2csv ( infilename , outfilename ) =
 
 (*csv2tsv("himym.csv","output_himym.tsv");*)
 (*tsv2csv("output_himym.tsv","output_himym.csv");*)
-convertDelimiters ("ex3.txt", #",", "output_ex3.txt", #";");
+(*convertDelimiters ("ex4.txt", #",", "output_ex4.txt", #";");*)
 
 
 
